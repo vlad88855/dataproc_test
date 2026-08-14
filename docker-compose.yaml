@@ -1,70 +1,69 @@
-version: '3.8'
-
-x-airflow-common:
-  &airflow-common
-  image: apache/airflow:2.9.0
-  environment:
-    &airflow-common-env
-    AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CORE__FERNET_KEY: ''
-    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/credentials/gcp-key.json
-  volumes:
-    - ./dags:/opt/airflow/dags
-    - ./scripts:/opt/airflow/scripts
-    - ./credentials:/opt/airflow/credentials
-  user: "${AIRFLOW_UID:-50000}:0"
-  depends_on:
-    &airflow-common-depends-on
-    postgres:
-      condition: service_healthy
+version: "3.8"
 
 services:
   postgres:
-    image: postgres:13
+    image: postgres:15
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
-      interval: 5s
-      retries: 5
-
-  airflow-webserver:
-    <<: *airflow-common
-    command: webserver
+      - ./pgdata:/var/lib/postgresql/data
     ports:
-      - 8080:8080
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: always
+      - "5432:5432"
 
-  airflow-scheduler:
-    <<: *airflow-common
-    command: scheduler
-    restart: always
-
-  airflow-init:
-    <<: *airflow-common
-    environment:
-      <<: *airflow-common-env
-      _AIRFLOW_DB_UPGRADE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-    command: version
+  webserver:
+    image: apache/airflow:3.1.0
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__LOGS__BASE_LOG_FOLDER: /opt/airflow/logs
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      AIRFLOW_UID: "50000"
+      AIRFLOW_VAR_GCP_PROJECT_ID: ${GCP_PROJECT_ID:-your-gcp-project-id}
+      AIRFLOW_VAR_GCP_REGION: ${GCP_REGION:-us-central1}
+      AIRFLOW_VAR_GCS_BUCKET: ${GCS_BUCKET:-your-gcs-bucket}
+      AIRFLOW_VAR_DATAPROC_CLUSTER_NAME: ${DATAPROC_CLUSTER_NAME:-poc-dataproc-cluster}
+      AIRFLOW_VAR_DATAPROC_ZONE: ${DATAPROC_ZONE:-us-central1-a}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    command: bash -c "airflow db migrate && airflow users create --username admin --firstname Airflow --lastname Admin --role Admin --email admin@example.com --password admin || true && airflow webserver"
+
+  scheduler:
+    image: apache/airflow:3.1.0
+    depends_on:
+      - postgres
+      - webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__LOGS__BASE_LOG_FOLDER: /opt/airflow/logs
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      AIRFLOW_UID: "50000"
+      AIRFLOW_VAR_GCP_PROJECT_ID: ${GCP_PROJECT_ID:-your-gcp-project-id}
+      AIRFLOW_VAR_GCP_REGION: ${GCP_REGION:-us-central1}
+      AIRFLOW_VAR_GCS_BUCKET: ${GCS_BUCKET:-your-gcs-bucket}
+      AIRFLOW_VAR_DATAPROC_CLUSTER_NAME: ${DATAPROC_CLUSTER_NAME:-poc-dataproc-cluster}
+      AIRFLOW_VAR_DATAPROC_ZONE: ${DATAPROC_ZONE:-us-central1-a}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+    command: airflow scheduler
 
 volumes:
-  postgres-db-volume:
+  pgdata: {}
