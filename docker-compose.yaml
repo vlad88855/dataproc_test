@@ -67,11 +67,11 @@ x-airflow-common:
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:-airflow_jwt_secret}
     AIRFLOW__API_AUTH__JWT_ISSUER: ${AIRFLOW__API_AUTH__JWT_ISSUER:-airflow}
 
-    AIRFLOW_VAR_GCP_PROJECT_ID: ${GCP_PROJECT_ID:-your-gcp-project-id}
-    AIRFLOW_VAR_GCP_REGION: ${GCP_REGION:-us-central1}
-    AIRFLOW_VAR_GCS_BUCKET: ${GCS_BUCKET:-your-gcs-bucket}
+    AIRFLOW_VAR_GCP_PROJECT_ID: ${GCP_PROJECT_ID:-gcp-data-eng-vlad888-dev}
+    AIRFLOW_VAR_GCP_REGION: ${GCP_REGION:-europe-west10}
+    AIRFLOW_VAR_GCS_BUCKET: ${GCS_BUCKET:-gcp-data-eng-vlad888-dev-poc-data-lake}
     AIRFLOW_VAR_DATAPROC_CLUSTER_NAME: ${DATAPROC_CLUSTER_NAME:-poc-dataproc-cluster}
-    AIRFLOW_VAR_DATAPROC_ZONE: ${DATAPROC_ZONE:-us-central1-a}
+    AIRFLOW_VAR_DATAPROC_ZONE: ${DATAPROC_ZONE:-europe-west10-c}
     
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
