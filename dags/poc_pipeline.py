@@ -80,30 +80,7 @@ def poc_dataproc_pipeline():
                 for chunk in r.iter_content(chunk_size=65536):
                     yield chunk
 
-        # 3. Custom file-like object to wrap the unzipped chunks generator for GCS upload
-        class IterableStream:
-            def __init__(self, iterator):
-                self.iterator = iterator
-                self.buffer = b''
-
-            def read(self, size=-1):
-                if size == -1:
-                    res = self.buffer + b''.join(self.iterator)
-                    self.buffer = b''
-                    return res
-                
-                while len(self.buffer) < size:
-                    try:
-                        chunk = next(self.iterator)
-                        self.buffer += chunk
-                    except StopIteration:
-                        break
-                
-                res = self.buffer[:size]
-                self.buffer = self.buffer[size:]
-                return res
-
-        # 4. Stream to GCS
+        # 3. Stream to GCS
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
         
@@ -116,16 +93,16 @@ def poc_dataproc_pipeline():
             if file_name_str.endswith('.csv'):
                 print(f"Found CSV file in stream: {file_name_str}")
                 
-                # Wrap the unzipped chunks generator in our file-like object
-                stream = IterableStream(unzipped_chunks)
-                
                 destination_blob_name = f"raw/{file_name_str}"
                 blob = bucket.blob(destination_blob_name)
                 
                 print(f"Uploading unzipped stream to gs://{bucket_name}/{destination_blob_name}...")
                 
-                # upload_from_file reads from the stream on the fly and uploads in chunks
-                blob.upload_from_file(stream, content_type='text/csv')
+                # Native GCS streaming upload without keeping the whole file in memory
+                # blob.open("wb") returns a file-like object that streams chunks directly to GCS via Resumable Upload
+                with blob.open("wb") as gcs_file:
+                    for chunk in unzipped_chunks:
+                        gcs_file.write(chunk)
                 
                 print("Upload completed successfully.")
                 
