@@ -51,45 +51,30 @@ def poc_dataproc_pipeline():
         import base64
         import requests
         from airflow.models import Variable
-        from google.cloud import secretmanager
         from google.cloud import storage
         from stream_unzip import stream_unzip
         
-        project_id = Variable.get("GCP_PROJECT_ID")
         bucket_name = Variable.get("GCS_BUCKET")
+        kaggle_username = Variable.get("KAGGLE_USERNAME")
+        kaggle_key = Variable.get("KAGGLE_KEY")
         
-        # 1. Fetch Kaggle credentials from Secret Manager
-        sm_client = secretmanager.SecretManagerServiceClient()
-        name_username = f"projects/{project_id}/secrets/KAGGLE_USERNAME/versions/latest"
-        name_key = f"projects/{project_id}/secrets/KAGGLE_KEY/versions/latest"
-        
-        kaggle_username = sm_client.access_secret_version(request={"name": name_username}).payload.data.decode("UTF-8").strip()
-        kaggle_key = sm_client.access_secret_version(request={"name": name_key}).payload.data.decode("UTF-8").strip()
-        
-        # 2. Setup streaming from Kaggle
-        # API URL for downloading dataset
         dataset_url = "https://www.kaggle.com/api/v1/datasets/download/marwa80/userbehavior"
         
-        # Basic Auth is used by Kaggle API
         auth = (kaggle_username, kaggle_key)
         
-        # A generator to fetch chunks from Kaggle
         def get_zipped_chunks():
             with requests.get(dataset_url, auth=auth, stream=True) as r:
                 r.raise_for_status()
                 for chunk in r.iter_content(chunk_size=65536):
                     yield chunk
 
-        # 3. Stream to GCS
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
         
         print("Starting stream from Kaggle -> stream-unzip -> GCS...")
-        # stream_unzip yields tuples: (file_name, file_size, unzipped_chunks)
         for file_name, file_size, unzipped_chunks in stream_unzip(get_zipped_chunks()):
             file_name_str = file_name.decode('utf-8')
             
-            # We are interested in the CSV file
             if file_name_str.endswith('.csv'):
                 print(f"Found CSV file in stream: {file_name_str}")
                 
