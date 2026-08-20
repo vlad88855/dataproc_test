@@ -27,7 +27,7 @@ build_cluster_config = {
     "gce_cluster_config": {
         "zone_uri": "{{ var.value.DATAPROC_ZONE }}",
         "service_account": "{{ var.value.DATAPROC_SA }}",
-        "scopes": ["cloud-platform"],
+        "service_account_scopes": ["https://www.googleapis.com/auth/cloud-platform"],
     }
 }
 
