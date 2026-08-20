@@ -128,7 +128,6 @@ def poc_dataproc_pipeline():
         project_id="{{ var.value.GCP_PROJECT_ID }}",
         region="{{ var.value.GCP_REGION }}",
         job={
-            "reference": {"job_id": "poc-spark-aggregation-{{ ds_nodash }}"},
             "placement": {"cluster_name": "{{ var.value.DATAPROC_CLUSTER_NAME }}"},
             "pyspark_job": {
                 "main_python_file_uri": (
