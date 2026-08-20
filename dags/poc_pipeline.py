@@ -19,7 +19,7 @@ build_cluster_config = {
     "worker_config": {
         "num_instances": 2,
         "machine_type_uri": "e2-standard-2",
-        "is_preemptible": True,
+        "is_preemptible": False,
     },
     "software_config": {
         "image_version": "2.2-debian12",
