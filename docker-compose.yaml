@@ -68,7 +68,7 @@ x-airflow-common:
     AIRFLOW__API_AUTH__JWT_ISSUER: ${AIRFLOW__API_AUTH__JWT_ISSUER:-airflow}
     
     AIRFLOW__SECRETS__BACKEND: 'airflow.providers.google.cloud.secrets.secret_manager.CloudSecretManagerBackend'
-    AIRFLOW__SECRETS__BACKEND_KWARGS: '{"variables_prefix": "", "project_id": "${GCP_PROJECT_ID}"}'
+    AIRFLOW__SECRETS__BACKEND_KWARGS: '{"variables_prefix": "", "sep": "", "project_id": "${GCP_PROJECT_ID}"}'
 
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
