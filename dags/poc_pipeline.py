@@ -85,6 +85,9 @@ def poc_dataproc_pipeline():
                 
                 destination_blob_name = f"raw/{file_name_str}"
                 blob = bucket.blob(destination_blob_name)
+                if blob.exists():
+                    print(f"File {destination_blob_name} already exists. Skipping upload.")
+                    return f"gs://{bucket_name}/{destination_blob_name}"
                 
                 print(f"Uploading unzipped stream to gs://{bucket_name}/{destination_blob_name}...")
                 
