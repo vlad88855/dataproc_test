@@ -31,12 +31,15 @@ def main(input_path: str, output_path: str) -> None:
     # А. Unbounded Window Function
     # Змушує Spark тримати всі події однієї категорії в RAM одного екзекутора.
     # Відбувається сильний перекіс (Data Skew), оскільки є дуже популярні категорії.
-    window_spec = Window.partitionBy("category_id").orderBy("timestamp") \
+    window_spec_unbounded = Window.partitionBy("category_id").orderBy("timestamp") \
                         .rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
 
+    # Ranking-функції (dense_rank) в Spark вимагають стандартного вікна (до current row)
+    window_spec_rank = Window.partitionBy("category_id").orderBy("timestamp")
+
     df_windowed = df \
-        .withColumn("running_max_item", F.max("item_id").over(window_spec)) \
-        .withColumn("dense_rank_ts", F.dense_rank().over(window_spec))
+        .withColumn("running_max_item", F.max("item_id").over(window_spec_unbounded)) \
+        .withColumn("dense_rank_ts", F.dense_rank().over(window_spec_rank))
 
     # Б. Складний Shuffle + Тяжкі агрегації
     # collect_set() збирає всі уникальні ID в один масив у пам'яті (Heavy GC).
