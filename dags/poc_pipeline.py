@@ -15,14 +15,23 @@ build_cluster_config = {
     "master_config": {
         "num_instances": 1,
         "machine_type_uri": "e2-standard-2",
+        "disk_config": {"boot_disk_type": "pd-standard", "boot_disk_size_gb": 50},
     },
     "worker_config": {
         "num_instances": 2,
         "machine_type_uri": "e2-standard-2",
-        "is_preemptible": False,
+        "disk_config": {"boot_disk_type": "pd-standard", "boot_disk_size_gb": 50},
     },
     "software_config": {
-        "image_version": "2.2-debian12",
+        "properties": {
+            "spark:spark.driver.memory": "5g",
+            "spark:spark.driver.memoryOverhead": "512m",
+            
+            "spark:spark.executor.memory": "5g",
+            "spark:spark.executor.memoryOverhead": "512m",
+            
+            "spark:spark.executor.cores": "2",
+        }
     },
     "gce_cluster_config": {
         "zone_uri": "{{ var.value.DATAPROC_ZONE }}",
