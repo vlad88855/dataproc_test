@@ -24,6 +24,11 @@ build_cluster_config = {
     "software_config": {
         "image_version": "2.2-debian12",
     },
+    "gce_cluster_config": {
+        "zone_uri": "{{ var.value.DATAPROC_ZONE }}",
+        "service_account": "{{ var.value.DATAPROC_SA }}",
+        "scopes": ["cloud-platform"],
+    }
 }
 
 default_args = {
