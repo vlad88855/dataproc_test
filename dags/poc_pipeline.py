@@ -8,6 +8,7 @@ from airflow.providers.google.cloud.operators.dataproc import (
     DataprocDeleteClusterOperator,
     DataprocSubmitJobOperator,
 )
+from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.utils.trigger_rule import TriggerRule
 
 
@@ -38,7 +39,7 @@ build_cluster_config = {
     },
     "gce_cluster_config": {
         "zone_uri": "{{ var.value.DATAPROC_ZONE }}",
-        "service_account": "{{ var.value.   DATAPROC_SA }}",
+        "service_account": "{{ var.value.DATAPROC_SA }}",
         "service_account_scopes": ["https://www.googleapis.com/auth/cloud-platform"],
     }
 }
@@ -154,8 +155,20 @@ def poc_dataproc_pipeline():
         trigger_rule=TriggerRule.ALL_DONE,
     )
 
+    gcs_to_bq = GCSToBigQueryOperator(
+        task_id="gcs_to_bq",
+        bucket="{{ var.value.GCS_BUCKET }}",
+        source_objects=["processed/user_behavior_aggregated/*.parquet"],
+        destination_project_dataset_table="{{ var.value.GCP_PROJECT_ID }}.{{ var.value.BQ_DATASET }}.user_behavior_aggregated",
+        source_format="PARQUET",
+        write_disposition="WRITE_TRUNCATE",
+        create_disposition="CREATE_IF_NEEDED",
+        autodetect=True,
+    )
+
     # Set dependencies
-    stream_upload_task >> create_cluster >> submit_job >> delete_cluster
+    stream_upload_task >> create_cluster >> submit_job
+    submit_job >> [delete_cluster, gcs_to_bq]
 
 # Instantiate the DAG
 dag = poc_dataproc_pipeline()
