@@ -31,11 +31,14 @@ build_cluster_config = {
             "spark:spark.executor.memoryOverhead": "512m",
             
             "spark:spark.executor.cores": "2",
+            
+            "spark:spark.eventLog.enabled": "true",
+            "spark:spark.eventLog.dir": "gs://{{ var.value.GCS_BUCKET }}/spark-logs/",
         }
     },
     "gce_cluster_config": {
         "zone_uri": "{{ var.value.DATAPROC_ZONE }}",
-        "service_account": "{{ var.value.DATAPROC_SA }}",
+        "service_account": "{{ var.value.   DATAPROC_SA }}",
         "service_account_scopes": ["https://www.googleapis.com/auth/cloud-platform"],
     }
 }

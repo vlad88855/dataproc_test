@@ -5,14 +5,11 @@ from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 
 
 def main(input_path: str, output_path: str) -> None:
-    # Конфігуруємо сесію, щоб дозволити Spill (скидання на диск при нестачі пам'яті)
-    # та встановити кількість партицій для Shuffle.
     spark = SparkSession.builder \
         .appName("dataproc-stress-test") \
         .config("spark.sql.shuffle.partitions", "200") \
         .getOrCreate()
 
-    # Схема датасету UserBehavior
     schema = StructType([
         StructField("user_id", IntegerType(), True),
         StructField("item_id", IntegerType(), True),
@@ -21,53 +18,39 @@ def main(input_path: str, output_path: str) -> None:
         StructField("timestamp", IntegerType(), True)
     ])
 
-    # Читаємо сирі дані
-    df = spark.read.csv(input_path, schema=schema, header=False)
+    df = spark.read.csv(input_path, schema=schema, header=False).sample(fraction=0.01, seed=42)
 
-    # =======================================================================
-    # СТРЕС-ТЕСТ ТРАНСФОРМАЦІЇ
-    # =======================================================================
-
-    # А. Unbounded Window Function
-    # Змушує Spark тримати всі події однієї категорії в RAM одного екзекутора.
-    # Відбувається сильний перекіс (Data Skew), оскільки є дуже популярні категорії.
     window_spec_unbounded = Window.partitionBy("category_id").orderBy("timestamp") \
                         .rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
 
-    # Ranking-функції (dense_rank) в Spark вимагають стандартного вікна (до current row)
     window_spec_rank = Window.partitionBy("category_id").orderBy("timestamp")
 
     df_windowed = df \
         .withColumn("running_max_item", F.max("item_id").over(window_spec_unbounded)) \
         .withColumn("dense_rank_ts", F.dense_rank().over(window_spec_rank))
 
-    # Б. Складний Shuffle + Тяжкі агрегації
-    # collect_set() збирає всі уникальні ID в один масив у пам'яті (Heavy GC).
-    # percentile_approx є обчислювально складною функцією.
-    df_aggregated = df_windowed.groupBy("category_id", "behavior_type") \
-        .agg(
-            F.countDistinct("user_id").alias("unique_users"),
-            # Використовуємо collect_set, що спричинить значне навантаження на Heap
-            F.collect_set("item_id").alias("all_items_array"),
-            F.expr("percentile_approx(timestamp, 0.5)").alias("median_ts"),
-            F.sum("running_max_item").alias("sum_max_item")
-        )
+    # df_aggregated = df_windowed.groupBy("category_id", "behavior_type") \
+    #     .agg(
+    #         F.countDistinct("user_id").alias("unique_users"),
+    #         F.collect_set("item_id").alias("all_items_array"),
+    #         F.expr("percentile_approx(timestamp, 0.5)").alias("median_ts"),
+    #         F.sum("running_max_item").alias("sum_max_item")
+    #     )
 
-    # В. Self-Join на перетині категорій
-    # Генерує величезну кількість пар та змушує Spark виконувати SortMergeJoin Shuffle.
-    # Ми джойнимо агреговані дані самі з собою для різних типів поведінки (наприклад, pv та buy).
-    df_final = df_aggregated.alias("a").join(
-        df_aggregated.alias("b"),
-        on=(F.col("a.category_id") == F.col("b.category_id")) & (F.col("a.behavior_type") != F.col("b.behavior_type")),
-        how="inner"
-    )
+    # df_final = df_aggregated.alias("a").join(
+    #     df_aggregated.alias("b"),
+    #     on=(F.col("a.category_id") == F.col("b.category_id")) & (F.col("a.behavior_type") != F.col("b.behavior_type")),
+    #     how="inner"
+    # )
     
-    # Додаткове глобальне сортування для фінального навантаження (викликає ще один Shuffle)
-    df_result = df_final.orderBy(F.col("a.category_id").desc())
+    # df_result = df_final.orderBy(F.col("a.category_id").desc())
 
-    # Тригер виконання (Action) через збереження
+    # df_result.write.mode("overwrite").parquet(output_path)
+
+    df_result = df_windowed.orderBy(F.col("category_id").desc())
+
     df_result.write.mode("overwrite").parquet(output_path)
-    
+
     spark.stop()
 
 
